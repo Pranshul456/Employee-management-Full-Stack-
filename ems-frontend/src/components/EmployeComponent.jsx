@@ -1,14 +1,23 @@
 import { React, useEffect, useState } from "react";
-import { addEmployee, getEmployee, updateEmployee } from "../services/EmployeeService";
+import {
+  addEmployee,
+  getEmployee,
+  updateEmployee,
+} from "../services/EmployeeService";
 import { useNavigate, useParams } from "react-router-dom";
+import { validateField, validateEmail, Message } from "../utils/validate";
 
 const EmployeComponent = () => {
   const navigator = useNavigate();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [submitError, setSubmitError] = useState(""); // New state for submit error
+
+  const [employees, setEmployees] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    jobTitle: "",
+  });
+  const [submitError, setSubmitError] = useState(""); // State for error messages
+  const [successMessage, setSuccessMessage] = useState(""); // State for success messages
 
   const { id } = useParams();
 
@@ -16,10 +25,7 @@ const EmployeComponent = () => {
     if (id) {
       getEmployee(id)
         .then((response) => {
-          setFirstName(response.data.firstName);
-          setLastName(response.data.lastName);
-          setEmail(response.data.email);
-          setJobTitle(response.data.jobTitle);
+          setEmployees(response.data);
         })
         .catch((error) => {
           console.error(error);
@@ -31,51 +37,48 @@ const EmployeComponent = () => {
     firstName: "",
     lastName: "",
     email: "",
-    jobTitle: ""
+    jobTitle: "",
   });
 
-  const handleFirstName = (event) => {
-    setFirstName(event.target.value);
-  };
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setEmployees({
+      ...employees,
+      [name]: value,
+    });
 
-  const handleLastName = (event) => {
-    setLastName(event.target.value);
+    // Real-time validation
+    setError((prevError) => ({
+      ...prevError,
+      [name]:
+        name === "email" ? validateEmail(value) : validateField(name, value),
+    }));
   };
-
-  const handleEmail = (event) => {
-    setEmail(event.target.value);
-  };
-
-  const handleJobTitle = (event) => {
-    setJobTitle(event.target.value);
-  };
-
 
   function validateForm() {
     let valid = true;
     const errorsCopy = { ...error };
-    if (firstName.trim()) {
+    if (employees.firstName.trim()) {
       errorsCopy.firstName = "";
     } else {
       errorsCopy.firstName = "First Name is required";
       valid = false;
     }
-    if (lastName.trim()) {
+    if (employees.lastName.trim()) {
       errorsCopy.lastName = "";
     } else {
       errorsCopy.lastName = "Last Name is required";
       valid = false;
     }
-    if (email.trim()) {
+    if (employees.email.trim()) {
       errorsCopy.email = "";
     } else {
       errorsCopy.email = "Email is required";
       valid = false;
     }
-    if (jobTitle.trim()) {
+    if (employees.jobTitle.trim()) {
       errorsCopy.jobTitle = "";
-    }
-    else {
+    } else {
       errorsCopy.jobTitle = "Job Title is required";
       valid = false;
     }
@@ -95,28 +98,35 @@ const EmployeComponent = () => {
   const saveOrUpdateEmployee = (event) => {
     event.preventDefault();
     if (validateForm()) {
-      const employee = { firstName, lastName, email, jobTitle };
-      console.log(employee);
+      const { firstName, lastName, email, jobTitle } = employees;
+      console.log(employees);
 
       if (id) {
-        updateEmployee(id, employee)
+        updateEmployee(id, employees)
           .then((response) => {
             console.log(response.data);
             navigator("/employees");
           })
           .catch((error) => {
             console.error(error);
-            setSubmitError("Failed to update employee. database server not connected."); // Set submit error
+            setSubmitError(
+              "Failed to update employee. Database server not connected."
+            ); // Set submit error
           });
       } else {
-        addEmployee(employee)
+        addEmployee(employees)
           .then((response) => {
             console.log(response.data);
-            navigator("/employees");
+            setSuccessMessage("Employee added successfully!"); // Set success message
+            setTimeout(() => {
+              navigator("/employees"); // Redirect after showing success message
+            }, 2000); // Delay for 2 seconds
           })
           .catch((error) => {
             console.error(error);
-            setSubmitError("Failed to add employee database server not connected."); // Set submit error
+            setSubmitError(
+              "Failed to add employee. Database server not connected."
+            ); // Set submit error
           });
       }
     }
@@ -135,11 +145,15 @@ const EmployeComponent = () => {
                   type="text"
                   placeholder="Enter Employee first Name:"
                   name="firstName"
-                  value={firstName}
-                  className={`form-control ${error.firstName ? "is-invalid" : ""}`}
-                  onChange={handleFirstName}
+                  value={employees.firstName}
+                  className={`form-control ${
+                    error.firstName ? "is-invalid" : ""
+                  }`}
+                  onChange={handleChange}
                 ></input>
-                {error.firstName && <div className="invalid-feedback">{error.firstName}</div>}
+                {error.firstName && (
+                  <div className="invalid-feedback">{error.firstName}</div>
+                )}
               </div>
               <div className="form-group mb-2">
                 <label className="form-label">Last Name:</label>
@@ -147,11 +161,15 @@ const EmployeComponent = () => {
                   type="text"
                   placeholder="Enter Employee Last Name:"
                   name="lastName"
-                  value={lastName}
-                  className={`form-control ${error.lastName ? "is-invalid" : ""}`}
-                  onChange={handleLastName}
+                  value={employees.lastName}
+                  className={`form-control ${
+                    error.lastName ? "is-invalid" : ""
+                  }`}
+                  onChange={handleChange}
                 ></input>
-                {error.lastName && <div className="invalid-feedback">{error.lastName}</div>}
+                {error.lastName && (
+                  <div className="invalid-feedback">{error.lastName}</div>
+                )}
               </div>
               <div className="form-group mb-2">
                 <label className="form-label">Email:</label>
@@ -159,11 +177,13 @@ const EmployeComponent = () => {
                   type="email"
                   placeholder="Enter Employee Email:"
                   name="email"
-                  value={email}
+                  value={employees.email}
                   className={`form-control ${error.email ? "is-invalid" : ""}`}
-                  onChange={handleEmail}
+                  onChange={handleChange}
                 ></input>
-                {error.email && <div className="invalid-feedback">{error.email}</div>}
+                {error.email && (
+                  <div className="invalid-feedback">{error.email}</div>
+                )}
               </div>
               <div className="form-group mb-2">
                 <label className="form-label">JobTitle:</label>
@@ -171,18 +191,28 @@ const EmployeComponent = () => {
                   type="text"
                   placeholder="Enter Employee Job Title:"
                   name="jobTitle"
-                  value={jobTitle}
-                  className={`form-control ${error.jobTitle ? "is-invalid" : ""}`}
-                  onChange={handleJobTitle}
+                  value={employees.jobTitle}
+                  className={`form-control ${
+                    error.jobTitle ? "is-invalid" : ""
+                  }`}
+                  onChange={handleChange}
                 ></input>
-                {error.jobTitle && <div className="invalid-feedback">{error.jobTitle}</div>}
+                {error.jobTitle && (
+                  <div className="invalid-feedback">{error.jobTitle}</div>
+                )}
               </div>
-              
-              {submitError && <div className="alert alert-danger">{submitError}</div>} {/* Display submit error */}
-              <button className="btn btn-outline-success" onClick={saveOrUpdateEmployee}>
+              {submitError && <Message type="error" message={submitError} />}{" "}
+              {/* Display submit error */}
+              {successMessage && (
+                <Message type="success" message={successMessage} />
+              )}{" "}
+              {/* Display success message */}
+              <button
+                className="btn btn-outline-success"
+                onClick={saveOrUpdateEmployee}
+              >
                 Submit
               </button>
-
               <a href="/employees" className="btn btn-outline-warning m-2">
                 Back
               </a>
